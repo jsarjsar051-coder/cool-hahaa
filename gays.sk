@@ -1,0 +1,80 @@
+options:
+    NukeTNTCount: 2600
+    NukeRingCount: 10
+    CooldownTime: 50 seconds
+
+command /getorbitalstrike [<text>]:
+    permission: op
+    trigger:
+        if arg-1 is "nuke":
+            give player 1 of fishing rod named "Orbital Nuke"
+        else if arg-1 is "stab":
+            give player 1 of fishing rod named "Orbital Stab"
+        else:
+            send "Unknown type '%arg-1%' - use nuke or stab."
+
+on right click:
+    if player's tool is fishing rod named "Orbital Nuke" or fishing rod named "Orbital Stab":
+        cancel event
+
+        if {osc::cooldown::%player's uuid%} is set:
+            set {_waited} to difference between {osc::cooldown::%player's uuid%} and now
+            if {_waited} is less than {@CooldownTime}:
+                set {_left} to {@CooldownTime}
+                remove {_waited} from {_left}
+                send action bar "Cooldown: %{_left}%" to player
+                stop
+
+        set {osc::cooldown::%player's uuid%} to now
+
+        set {_targetBlock} to target block of player
+        if {_targetBlock} is not set:
+            set {_targetBlock} to location 50 meters in front of player
+
+        set {_strikeLoc} to location of {_targetBlock}
+        add 60 to y-coordinate of {_strikeLoc}
+
+        if player's tool is fishing rod named "Orbital Nuke":
+            spawn primed tnt at {_strikeLoc}
+            set {_payload} to last spawned primed tnt
+            set fuse time of {_payload} to 100
+
+            loop 25 times:
+                play particle flame at location of {_payload} with offset 0.5, 0.5, 0.5
+                wait 2 ticks
+                if block 5 meters below {_payload} is not air:
+                    exit loop
+
+            set {_center} to location of {_payload}
+            set {_ringCount} to {@NukeRingCount}
+            set {_perRing} to {@NukeTNTCount} / {_ringCount}
+
+            loop {_ringCount} times:
+                set {_ring} to loop-value
+                set {_speed} to 1.2 + ({_ring} * 0.45)
+                set {_upward} to 0.4 + ({_ring} * 0.08)
+
+                loop {_perRing} times:
+                    set {_angle} to (360 / {_perRing}) * loop-value
+                    set {_dir} to vector from yaw {_angle} and pitch 0
+
+                    spawn primed tnt at {_center}
+                    set {_tnt} to last spawned primed tnt
+                    set fuse time of {_tnt} to 20
+                    push {_tnt} vector(({_dir}'s x) * {_speed}, {_upward}, ({_dir}'s z) * {_speed})
+
+                wait 3 ticks
+
+        else if player's tool is fishing rod named "Orbital Stab":
+            loop 30 times:
+                spawn primed tnt at {_strikeLoc}
+                set {_tnt} to last spawned primed tnt
+                set fuse time of {_tnt} to 40
+                push {_tnt} vector(0, -2, 0)
+                spawn particle soul fire flame at {_tnt}
+                wait 2 ticks
+
+on tool break:
+    if tool is fishing rod named "Orbital Nuke" or fishing rod named "Orbital Stab":
+        cancel event
+        set durability of tool to 0
